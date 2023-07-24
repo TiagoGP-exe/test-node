@@ -20,8 +20,10 @@ const scrapeLogic = async (res) => {
     const [newPage] = await browser.pages();
 
     await newPage.goto(BASE_URL, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "load",
     });
+
+    console.log(newPage);
 
     await newPage.waitForSelector(".animation-2 article");
 
