@@ -1,6 +1,8 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
+const BASE_URL = "https://goanimes.net/";
+
 const scrapeLogic = async (res) => {
   const browser = await puppeteer.launch({
     args: [
@@ -15,31 +17,54 @@ const scrapeLogic = async (res) => {
         : puppeteer.executablePath(),
   });
   try {
-    const page = await browser.newPage();
+    const [newPage] = await browser.pages();
 
-    await page.goto("https://developer.chrome.com/");
+    await newPage.goto(BASE_URL, {
+      waitUntil: "domcontentloaded",
+    });
 
-    // Set screen size
-    await page.setViewport({ width: 1080, height: 1024 });
+    await newPage.waitForSelector(".animation-2 article");
 
-    // Type into search box
-    await page.type(".search-box__input", "automate beyond recorder");
+    const videos = await newPage.$$(".animation-2 article");
 
-    // Wait and click on first result
-    const searchResultSelector = ".search-box__link";
-    await page.waitForSelector(searchResultSelector);
-    await page.click(searchResultSelector);
+    // regex diferent of number``
+    const regex = /[^\d]/g;
 
-    // Locate the full title with a unique string
-    const textSelector = await page.waitForSelector(
-      "text/Customize and automate"
+    const contentVideos = await Promise.all(
+      videos.map(async (item) => {
+        const slug = await item
+          .$eval("a", (a) => a.getAttribute("href").split("assistir")[1])
+          .catch(() => "");
+
+        const properties = {
+          title: await item
+            .$eval(".serie", (el) => el.textContent)
+            .catch(() => null),
+          episode: Number(
+            (
+              await item
+                .$eval(".data h3", (h3) => h3.textContent)
+                .catch(() => "")
+            ).replace(regex, "")
+          ),
+          isDubbed: slug?.includes("dublado") ?? false,
+          slug: slug?.slice(1, slug.length - 1),
+          url: await item
+            .$eval("a", (a) => a.getAttribute("href"))
+            .catch(() => ""),
+          image: await item
+            .$eval("img", (img) => img.getAttribute("src"))
+            .catch(() => ""),
+          video: null,
+          views: 0,
+          createdAt: new Date().toISOString(),
+        };
+
+        return properties;
+      })
     );
-    const fullTitle = await textSelector.evaluate((el) => el.textContent);
 
-    // Print the full title
-    const logStatement = `The title of this blog post is ${fullTitle}`;
-    console.log(logStatement);
-    res.send(logStatement);
+    res.send(contentVideos.length ? contentVideos : []);
   } catch (e) {
     console.error(e);
     res.send(`Something went wrong while running Puppeteer: ${e}`);
