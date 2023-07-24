@@ -19,11 +19,7 @@ const scrapeLogic = async (res) => {
   try {
     const [newPage] = await browser.pages();
 
-    await newPage.goto(BASE_URL, {
-      waitUntil: "load",
-    });
-
-    console.log(newPage);
+    await newPage.goto(BASE_URL);
 
     await newPage.waitForSelector(".animation-2 article");
 
